@@ -3,6 +3,7 @@
 
 import argparse
 import logging
+import operator
 import os
 import string
 import sys
@@ -23,7 +24,7 @@ logging.basicConfig(format = '%(levelname)s: %(message)s', level = logging.INFO)
 
 parser = argparse.ArgumentParser(description = 'Rotate EBS snapshots', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--dry-run', action = 'store_true')
-parser.add_argument('--keep-houry', default = 24, type = int, help = 'keep this many hourly snapshots', metavar = 'HOURLY')
+parser.add_argument('--keep-hourly', default = 24, type = int, help = 'keep this many hourly snapshots', metavar = 'HOURLY')
 parser.add_argument('--keep-daily', default = 7, type = int, help = 'keep this many daily snapshots', metavar = 'DAILY')
 parser.add_argument('--keep-weekly', default = 4, type = int, help = 'keep this many weekly snapshots', metavar = 'WEEKLY')
 parser.add_argument('--keep-monthly', default = 3, type = int, help = 'keep this many monthly snapshots', metavar = 'MONTHLY')
@@ -34,6 +35,32 @@ parser.add_argument('--aws-access', required = True, help = 'AWS access key', me
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
 parser.add_argument('--aws-owner', required = True, help = 'AWS account ID')
 args = parser.parse_args()
+
+windows = [ 'hourly', 'daily', 'weekly', 'monthly', 'yearly' ]
+window_sizes = {
+    windows[0]: 60*60,
+    windows[1]: 60*60*24,
+    windows[2]: 60*60*24*7,
+    windows[3]: 60*60*24*30,
+    windows[4]: 60*60*24*365
+}
+keep_per_window = {
+    windows[0]: 0,
+    windows[1]: 0,
+    windows[2]: 0,
+    windows[3]: 0,
+    windows[4]: 0
+}
+if args.keep_hourly:
+    keep_per_window['hourly'] = args.keep_hourly
+if args.keep_daily:
+    keep_per_window['daily'] = args.keep_daily
+if args.keep_weekly:
+    keep_per_window['weekly'] = args.keep_weekly
+if args.keep_monthly:
+    keep_per_window['monthly'] = args.keep_monthly
+if args.keep_yearly:
+    keep_per_window['yearly'] = args.keep_yearly
 
 tags = args.tags
 aws_region = args.aws_region
@@ -51,24 +78,53 @@ except:
 
 
 # get list of all snapshots
-filters = { "status":"completed" }
+filters = { "status": "completed" }
 
 if tags:
     for tag in tags:
         (name, value) = string.split(tag, ':')
         filters['tag:'+name] = value
 
-snapshots = conn.get_all_snapshots(filters=filters, owner = aws_owner)
-print snapshots
+snapshots = conn.get_all_snapshots(filters = filters, owner = aws_owner)
 
 if not snapshots:
     logging.info('no snapshots found')
     sys.exit(-1)
 
 
+# get the timestamp of every snapshot
+timestamps = []
+
 for s in snapshots:
-    tags = conn.get_all_tags(filters={'resource-id': s.id})
-    print tags
+    snapshot_id = s.id
+    tags = conn.get_all_tags( filters = {'resource-id': snapshot_id} )
+    timestamp = filter( lambda tag: tag.name == 'Timestamp', tags )
+    if timestamp:
+        timestamps.append( (snapshot_id, int(timestamp[0].value)) )
+    else:
+        logging.warning('snapshot "%s" does not have a tag named "Timestamp"' % (snapshot_id))
 
 
+# do the rotation
+now = time.time()
+
+for window in windows:
+    timeslice = window_sizes[window]
+    keep = keep_per_window[window]
+
+    logging.info('finding last %d %s snapshots (%d second window)' % (keep, window, timeslice))
+
+    for idx in range(0, keep):
+        max = now - (idx * timeslice)
+        min = max - timeslice
+        logging.debug("UET %d to UET %d" % (max, min))
+        found = filter( lambda x: x[1] > min and x[1] <= max, timestamps )
+        if not found:
+            continue
+        found.sort( key = lambda x: x[1], reverse = True)
+        logging.info("found %d %s snapshots found (idx = %d)" % (len(found), window, idx))
+ 
+        print found
+
+    now -= keep * timeslice
 

@@ -11,6 +11,9 @@ import boto.utils
 import boto.ec2
 
 
+fsfreeze = '/sbin/fsfreeze'
+
+
 version = sys.hexversion
 if version < 0x02070000:
     sys.stderr.write('python 2.7 or higher required\n')
@@ -19,7 +22,7 @@ if version < 0x02070000:
 
 def fs_freeze(mount):
     logging.info('freezing filesystem')
-    ret = subprocess.call( [ 'fsfreeze', '-f', mount ] )
+    ret = subprocess.call( [ fsfreeze, '-f', mount ] )
     if ret:
         logging.critical('failed to freeze filesystem')
         sys.exit(-1)
@@ -27,7 +30,7 @@ def fs_freeze(mount):
 
 def fs_thaw(mount):
     logging.info('thawing filesystem')
-    ret = subprocess.call( [ 'fsfreeze', '-u', mount ] )
+    ret = subprocess.call( [ fsfreeze, '-u', mount ] )
     if ret:
         logging.critical('failed to thaw filesystem')
 

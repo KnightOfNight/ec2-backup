@@ -21,11 +21,13 @@ logging.basicConfig(format = '%(levelname)s: %(message)s', level = logging.INFO)
 
 
 parser = argparse.ArgumentParser(description = 'Rotate EBS snapshots', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--tag', help = 'filter by tag, specified as a name:value pair', action = 'append')
 parser.add_argument('--aws-region', default = 'us-east-1', help = 'AWS region', metavar ='REGION')
 parser.add_argument('--aws-access', required = True, help = 'AWS access key', metavar = 'KEY')
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
 args = parser.parse_args()
 
+tags = args.tag
 aws_region = args.aws_region
 aws_access = args.aws_access
 aws_secret = args.aws_secret
@@ -40,8 +42,18 @@ except:
 
 
 # get list of all snapshots
-snapshots = conn.get_all_snapshots(filters={ "status": "completed", "tag:Instance" : "git-000" })
+filters = { "status":"completed" }
 
+for tag in tags:
+    (name, value) = split(tag, ':')
+    filters['tag:'+name] = value
 
+snapshots = conn.get_all_snapshots(filters=filters)
 print snapshots
+
+for s in snapshots:
+    tags = conn.get_all_tags(filters={'resource-id': s.id})
+    print tags
+
+
 

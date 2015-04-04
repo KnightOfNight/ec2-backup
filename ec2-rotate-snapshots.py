@@ -19,11 +19,34 @@ if version < 0x02070000:
     sys.exit(-1)
 
 
+# run a command with a geometric backoff
+def backoff(max, f, *args):
+    for attempt in range(1, max):
+        try:
+            ret = f(*args)
+        except:
+            if attempt < max:
+                sleeptime = .25 * (attempt * attempt)
+                logging.warning('API rate limiting, backing off %.2f seconds' % (sleeptime))
+                time.sleep(sleeptime)
+            else:
+                raise e
+        else:
+            logging.debug('no backoff needed')
+            return(ret)
+
+
+# get all tags for a snapshot
+def get_all_tags(conn, snapshot_id):
+    return( conn.get_all_tags( filters = {'resource-id': snapshot_id} ) )
+
+
 logging.basicConfig(format = '%(levelname)s: %(message)s', level = logging.INFO)
 
 
 parser = argparse.ArgumentParser(description = 'Rotate EBS snapshots', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--dry-run', action = 'store_true')
+parser.add_argument('--max-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
 parser.add_argument('--keep-hourly', default = 24, type = int, help = 'keep this many hourly snapshots', metavar = 'HOURLY')
 parser.add_argument('--keep-daily', default = 7, type = int, help = 'keep this many daily snapshots', metavar = 'DAILY')
 parser.add_argument('--keep-weekly', default = 4, type = int, help = 'keep this many weekly snapshots', metavar = 'WEEKLY')
@@ -62,6 +85,8 @@ if args.keep_monthly:
 if args.keep_yearly:
     keep_per_window['yearly'] = args.keep_yearly
 
+max_retries = args.max_retries
+dry_run = args.dry_run
 tags = args.tags
 aws_region = args.aws_region
 aws_access = args.aws_access
@@ -88,7 +113,7 @@ if tags:
 snapshots = conn.get_all_snapshots(filters = filters, owner = aws_owner)
 
 if not snapshots:
-    logging.info('no snapshots found')
+    logging.error('no snapshots found')
     sys.exit(-1)
 
 
@@ -97,12 +122,12 @@ timestamps = []
 
 for s in snapshots:
     snapshot_id = s.id
-    tags = conn.get_all_tags( filters = {'resource-id': snapshot_id} )
+    tags = backoff(max_retries, get_all_tags, conn, s.id)
     timestamp = filter( lambda tag: tag.name == 'Timestamp', tags )
     if timestamp:
-        timestamps.append( (snapshot_id, int(timestamp[0].value)) )
+        timestamps.append( (s.id, int(timestamp[0].value)) )
     else:
-        logging.warning('snapshot "%s" does not have a tag named "Timestamp"' % (snapshot_id))
+        logging.warning('snapshot "%s" does not have a tag named "Timestamp"' % (s.id))
 
 
 # do the rotation
@@ -112,6 +137,7 @@ for window in windows:
     timeslice = window_sizes[window]
     keep = keep_per_window[window]
 
+    print
     logging.info('finding last %d %s snapshots (%d second window)' % (keep, window, timeslice))
 
     for idx in range(0, keep):
@@ -119,12 +145,28 @@ for window in windows:
         min = max - timeslice
         logging.debug("UET %d to UET %d" % (max, min))
         found = filter( lambda x: x[1] > min and x[1] <= max, timestamps )
+        print
+        logging.info("found %d %s snapshots (idx = %d, %s to %s)" % (len(found), window, idx, time.ctime(min), time.ctime(max)))
+
         if not found:
             continue
+
         found.sort( key = lambda x: x[1], reverse = True)
-        logging.info("found %d %s snapshots found (idx = %d)" % (len(found), window, idx))
- 
-        print found
+
+        f = found.pop(0)
+        logging.info('keeping snapshot %s (%s)' % (f[0], time.ctime(f[1])))
+
+        if found:
+            for f in found:
+                details = 'snapshot %s (%s)' % (f[0], time.ctime(f[1]))
+                if dry_run:
+                    logging.warn('*would* delete %s' % (details))
+                else:
+                    logging.info('deleting %s' % (details))
+                    backoff( max_retries, conn.delete_snapshot, f[0] )
 
     now -= keep * timeslice
+
+
+sys.exit(0)
 

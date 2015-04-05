@@ -41,9 +41,6 @@ def get_all_tags(conn, snapshot_id):
     return( conn.get_all_tags( filters = {'resource-id': snapshot_id} ) )
 
 
-logging.basicConfig(format = '%(levelname)s: %(message)s', level = logging.INFO)
-
-
 parser = argparse.ArgumentParser(description = 'Rotate EBS snapshots', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--dry-run', action = 'store_true')
 parser.add_argument('--max-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
@@ -57,6 +54,7 @@ parser.add_argument('--aws-region', default = 'us-east-1', help = 'AWS region', 
 parser.add_argument('--aws-access', required = True, help = 'AWS access key', metavar = 'KEY')
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
 parser.add_argument('--aws-owner', required = True, help = 'AWS account ID')
+parser.add_argument('--debug', help = 'print debugging information to screen', action = 'store_true')
 args = parser.parse_args()
 
 windows = [ 'hourly', 'daily', 'weekly', 'monthly', 'yearly' ]
@@ -92,6 +90,14 @@ aws_region = args.aws_region
 aws_access = args.aws_access
 aws_secret = args.aws_secret
 aws_owner = args.aws_owner
+debug = args.debug
+
+
+# setup logging
+if debug:
+    logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', level = logging.DEBUG, datefmt = '%Y/%m/%d %H:%M:%S')
+else:
+    logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', datefmt = '%Y/%m/%d %H:%M:%S')
 
 
 # connect to the AWS API

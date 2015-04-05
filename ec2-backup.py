@@ -35,9 +35,6 @@ def fs_thaw(mount):
         logging.critical('failed to thaw filesystem')
 
 
-logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', level = logging.INFO, datefmt = '%Y/%m/%d %H:%M:%S')
-
-
 parser = argparse.ArgumentParser(description = 'Backup an attached EBS volume', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--device', required = True, help = 'device name of the attached volume, e.g. /dev/xvda')
 parser.add_argument('--mount', required = True, help = 'mount point of the attached volume, e.g. /')
@@ -45,6 +42,7 @@ parser.add_argument('--aws-region', default = 'us-east-1', help = 'AWS region', 
 parser.add_argument('--aws-access', required = True, help = 'AWS access key', metavar = 'KEY')
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
 parser.add_argument('--mysql', help = 'stop MySQL before taking the snapshot and restart it after', action='store_true')
+parser.add_argument('--debug', help = 'print debugging information to screen', action = 'store_true')
 args = parser.parse_args()
 
 device = args.device
@@ -53,10 +51,18 @@ aws_region = args.aws_region
 aws_access = args.aws_access
 aws_secret = args.aws_secret
 mysql = args.mysql
+debug = args.debug
 
 if mysql and not os.path.isfile('/etc/init.d/mysqld'):
     logging.critical('MySQL daemon init script not found, cannot stop and start MySQL')
     sys.exit(-1)
+
+
+# setup logging
+if debug:
+    logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', level = logging.DEBUG, datefmt = '%Y/%m/%d %H:%M:%S')
+else:
+    logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', datefmt = '%Y/%m/%d %H:%M:%S')
 
 
 # connect to the AWS API

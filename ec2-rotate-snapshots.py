@@ -41,7 +41,7 @@ def get_all_tags(conn, snapshot_id):
     return( conn.get_all_tags( filters = {'resource-id': snapshot_id} ) )
 
 
-logging.basicConfig(format = '%(levelname)s: %(message)s', level = logging.INFO)
+logging.basicConfig(filename = '/var/log/ec2-rotate-snapshots', format = '%(levelname)s: %(message)s', level = logging.INFO)
 
 
 parser = argparse.ArgumentParser(description = 'Rotate EBS snapshots', formatter_class=argparse.ArgumentDefaultsHelpFormatter)

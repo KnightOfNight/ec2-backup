@@ -35,7 +35,7 @@ def fs_thaw(mount):
         logging.critical('failed to thaw filesystem')
 
 
-logging.basicConfig(filename = '/var/log/ec2-backup', format = '%(asctime)s %(levelname)s: %(message)s', level = logging.INFO, datefmt = '%Y/%m/%d %H:%M:%S')
+logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', level = logging.INFO, datefmt = '%Y/%m/%d %H:%M:%S')
 
 
 parser = argparse.ArgumentParser(description = 'Backup an attached EBS volume', formatter_class=argparse.ArgumentDefaultsHelpFormatter)

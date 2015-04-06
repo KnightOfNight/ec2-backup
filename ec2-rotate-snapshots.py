@@ -143,7 +143,6 @@ for window in windows:
     timeslice = window_sizes[window]
     keep = keep_per_window[window]
 
-    print
     logging.info('finding last %d %s snapshots (%d second window)' % (keep, window, timeslice))
 
     for idx in range(0, keep):
@@ -151,7 +150,6 @@ for window in windows:
         min = max - timeslice
         logging.debug("UET %d to UET %d" % (max, min))
         found = filter( lambda x: x[1] > min and x[1] <= max, timestamps )
-        print
         logging.info("found %d %s snapshots (idx = %d, %s to %s)" % (len(found), window, idx, time.ctime(min), time.ctime(max)))
 
         if not found:

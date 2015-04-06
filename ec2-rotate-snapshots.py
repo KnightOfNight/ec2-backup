@@ -30,7 +30,7 @@ def backoff(max, f, *args):
                 logging.warning('API rate limiting, backing off %.2f seconds' % (sleeptime))
                 time.sleep(sleeptime)
             else:
-                raise e
+                raise
         else:
             logging.debug('no backoff needed')
             return(ret)
@@ -41,6 +41,7 @@ def get_all_tags(conn, snapshot_id):
     return( conn.get_all_tags( filters = {'resource-id': snapshot_id} ) )
 
 
+# parse command line arguments
 parser = argparse.ArgumentParser(description = 'Rotate EBS snapshots', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--dry-run', action = 'store_true')
 parser.add_argument('--max-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
@@ -105,7 +106,7 @@ try:
     conn = boto.ec2.connect_to_region(aws_region, aws_access_key_id = aws_access, aws_secret_access_key = aws_secret)
 except:
     logging.critical('unable to connect to the AWS API')
-    sys.exit(-1)
+    raise
 
 
 # get list of all snapshots

@@ -152,7 +152,21 @@ if mysql:
 
 
 # tag the snapshot
-logging.info('snapshot ID = "%s"' % snapshot.id)
+snapshot_id = snapshot.id
+
+logging.info('snapshot ID = "%s"' % snapshot_id)
+
+logging.info('waiting for snapshot to appear')
+
+for i in range(0, 10):
+    try:
+        snapshots = conn.get_all_snapshots([snapshot_id])
+    except:
+        if i == 10:
+            logging.critical('timed out waiting for snapshot "%s" to appear' % (snapshot_id))
+            raise
+        else
+            sleep(.25 * i * i)
 
 try:
     snapshot.add_tag('Name', instance_name_tag + '-' + timestamp_tag)

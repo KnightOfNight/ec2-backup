@@ -27,9 +27,10 @@ def backoff(max, f, *args):
         except:
             if attempt < max:
                 sleeptime = .25 * (attempt * attempt)
-                logging.warning('API rate limiting, backing off %.2f seconds' % (sleeptime))
+                logging.warning('"%s" failed, backing off %.2f seconds' % (f, sleeptime))
                 time.sleep(sleeptime)
             else:
+                logging.critical('failed to execute function "%s", maximum attempts exceeded' % (f))
                 raise
         else:
             logging.debug('no backoff needed')

@@ -122,7 +122,7 @@ timestamp_tag = str(int(time.time()))
 # stop mysql
 if mysql:
     logging.info('stopping mysql')
-    if subprocess.call( [ '/etc/init.d/mysqld', 'stop' ] ):
+    if subprocess.call( '/etc/init.d/mysqld stop > dev/null', shell = True):
         logging.critical('unable to stop mysql')
         sys.exit(-1)
 
@@ -145,7 +145,7 @@ fs_thaw(mount)
 # start mysql
 if mysql:
     logging.info('starting mysql')
-    if subprocess.call( [ '/etc/init.d/mysqld', 'start' ] ):
+    if subprocess.call( '/etc/init.d/mysqld start > dev/null', shell = True):
         logging.critical('unable to start mysql')
         sys.exit(-1)
 

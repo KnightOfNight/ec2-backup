@@ -35,6 +35,7 @@ def fs_thaw(mount):
         logging.critical('failed to thaw filesystem')
 
 
+# parse command line arguments
 parser = argparse.ArgumentParser(description = 'Backup an attached EBS volume', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--device', required = True, help = 'device name of the attached volume, e.g. /dev/xvda')
 parser.add_argument('--mount', required = True, help = 'mount point of the attached volume, e.g. /')
@@ -70,7 +71,7 @@ try:
     conn = boto.ec2.connect_to_region(aws_region, aws_access_key_id = aws_access, aws_secret_access_key = aws_secret)
 except:
     logging.critical('unable to connect to the AWS API')
-    sys.exit(-1)
+    raise
 
 
 # get the instance ID
@@ -78,7 +79,7 @@ try:
     meta = boto.utils.get_instance_metadata()
 except:
     logging.critical('unable to get instance meta information')
-    sys.exit(-1)
+    raise
 
 instance_id = meta['instance-id']
 logging.info('instance ID = "%s"' % instance_id)
@@ -89,7 +90,7 @@ try:
     instance_vols = conn.get_all_volumes(filters={'attachment.instance-id': instance_id})
 except:
     logging.critical('unable to get volumes')
-    sys.exit(-1)
+    raise
 
 matching_vols = [v for v in instance_vols if v.attach_data.device == device]
 
@@ -107,7 +108,7 @@ try:
     all_tags = conn.get_all_tags(filters={'resource-id': instance_id})
 except:
     logging.critical('unable to get tags')
-    sys.exit(-1)
+    raise
 
 tags = filter(lambda tag: tag.name == 'Name', all_tags)
 
@@ -137,7 +138,7 @@ try:
 except:
     fs_thaw(mount)
     logging.critical('snapshot failed')
-    sys.exit(-1)
+    raise
 
 fs_thaw(mount)
 
@@ -155,18 +156,14 @@ logging.info('snapshot ID = "%s"' % snapshot.id)
 
 try:
     snapshot.add_tag('Name', instance_name_tag + '-' + timestamp_tag)
-except:
-    logging.critical('failed to tag snapshot with Name')
-
-try:
     snapshot.add_tag('Timestamp', timestamp_tag)
-except:
-    logging.critical('failed to tag snapshot with Timestamp')
-
-try:
     snapshot.add_tag('Instance', instance_name_tag)
 except:
-    logging.critical('failed to tag snapshot with Instance')
+    logging.critical('failed to add all required tags to snapshot "%s"' % (snapshot.id))
+    raise
 
-logging.info('snapshot tagged')
+
+# exit
+logging.info('snapshot created and tagged successfully')
+sys.exit(0)
 

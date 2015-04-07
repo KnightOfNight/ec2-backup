@@ -98,7 +98,7 @@ if tags:
         (name, value) = string.split(tag, ':')
         filters['tag:'+name] = value
 
-snapshots = conn.get_all_snapshots(filters = filters, owner = aws_owner)
+snapshots = backoff(max_retries, conn.get_all_snapshots, filters = filters, owner = aws_owner)
 
 if not snapshots:
     logging.error('no snapshots found')

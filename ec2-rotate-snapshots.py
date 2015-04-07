@@ -20,11 +20,6 @@ if version < 0x02070000:
     sys.exit(-1)
 
 
-# get all tags for a snapshot
-def get_all_tags(conn, snapshot_id):
-    return( conn.get_all_tags( filters = {'resource-id': snapshot_id} ) )
-
-
 # parse command line arguments
 parser = argparse.ArgumentParser(description = 'Rotate EBS snapshots', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--keep-hourly', default = 24, type = int, help = 'keep this many hourly snapshots', metavar = 'HOURLY')

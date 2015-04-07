@@ -130,8 +130,11 @@ for window in windows:
     for idx in range(0, keep):
         max = now - (idx * timeslice)
         min = max - timeslice
+
         logging.debug("UET %d to UET %d" % (max, min))
+
         found = filter( lambda x: x[1] > min and x[1] <= max, timestamps )
+
         logging.info("found %d %s snapshots (idx = %d, %s to %s)" % (len(found), window, idx, time.ctime(min), time.ctime(max)))
 
         if not found:
@@ -139,17 +142,27 @@ for window in windows:
 
         found.sort( key = lambda x: x[1], reverse = True)
 
+        # pop the first (newest) item, it's a keeper
         f = found.pop(0)
-        logging.info('keeping snapshot %s (%s)' % (f[0], time.ctime(f[1])))
+        logging.info('keeping newest snapshot %s (%s)' % (f[0], time.ctime(f[1])))
 
-        if found:
-            for f in found:
-                details = 'snapshot %s (%s)' % (f[0], time.ctime(f[1]))
-                if dry_run:
-                    logging.warn('*would* delete %s' % (details))
-                else:
-                    logging.info('deleting %s' % (details))
-                    backoff( max_retries, conn.delete_snapshot, f[0] )
+        if not found:
+            continue
+
+        # pop the last (oldest) item, it's a keeper so it can age into the next oldest bucket
+        f = found.pop()
+        logging.info('keeping oldest snapshot %s (%s)' % (f[0], time.ctime(f[1])))
+
+        if not found:
+            continue
+
+        for f in found:
+            details = 'snapshot %s (%s)' % (f[0], time.ctime(f[1]))
+            if dry_run:
+                logging.warn('*would* delete %s' % (details))
+            else:
+                logging.info('deleting %s' % (details))
+                backoff( max_retries, conn.delete_snapshot, f[0] )
 
     now -= keep * timeslice
 

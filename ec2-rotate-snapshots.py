@@ -39,7 +39,7 @@ parser.add_argument('--aws-region', default = 'us-east-1', help = 'AWS region', 
 parser.add_argument('--aws-access', required = True, help = 'AWS access key', metavar = 'KEY')
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
 parser.add_argument('--aws-owner', required = True, help = 'AWS account ID')
-parser.add_argument('--debug', help = 'print debugging information to screen', action = 'store_true')
+parser.add_argument('--log-level', help = 'set the log level to increase or decrease verbosity', default = 'WARNING')
 args = parser.parse_args()
 
 windows = [ 'hourly', 'daily', 'weekly', 'monthly', 'yearly' ]
@@ -75,14 +75,11 @@ aws_region = args.aws_region
 aws_access = args.aws_access
 aws_secret = args.aws_secret
 aws_owner = args.aws_owner
-debug = args.debug
+log_level = args.log_level
 
 
 # setup logging
-if debug:
-    logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', level = logging.DEBUG, datefmt = '%Y/%m/%d %H:%M:%S')
-else:
-    logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', datefmt = '%Y/%m/%d %H:%M:%S')
+logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', level = getattr(logging, log_level.upper()), datefmt = '%Y/%m/%d %H:%M:%S')
 
 
 # connect to the AWS API

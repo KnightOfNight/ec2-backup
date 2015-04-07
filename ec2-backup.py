@@ -44,7 +44,8 @@ parser.add_argument('--aws-region', default = 'us-east-1', help = 'AWS region', 
 parser.add_argument('--aws-access', required = True, help = 'AWS access key', metavar = 'KEY')
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
 parser.add_argument('--mysql', help = 'stop MySQL before taking the snapshot and restart it after', action='store_true')
-parser.add_argument('--debug', help = 'print debugging information to screen', action = 'store_true')
+parser.add_argument('--max-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
+parser.add_argument('--log-level', help = 'set the log level to increase or decrease verbosity', default = 'WARNING')
 args = parser.parse_args()
 
 device = args.device
@@ -53,7 +54,8 @@ aws_region = args.aws_region
 aws_access = args.aws_access
 aws_secret = args.aws_secret
 mysql = args.mysql
-debug = args.debug
+max_retries = args.max_retries
+log_level = args.log_level
 
 if mysql and not os.path.isfile('/etc/init.d/mysqld'):
     logging.critical('MySQL daemon init script not found, cannot stop and start MySQL')
@@ -61,10 +63,7 @@ if mysql and not os.path.isfile('/etc/init.d/mysqld'):
 
 
 # setup logging
-if debug:
-    logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', level = logging.DEBUG, datefmt = '%Y/%m/%d %H:%M:%S')
-else:
-    logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', datefmt = '%Y/%m/%d %H:%M:%S')
+logging.basicConfig(format = '%(asctime)s %(levelname)s: %(message)s', level = getattr(logging, log_level.upper()), datefmt = '%Y/%m/%d %H:%M:%S')
 
 
 # connect to the AWS API
@@ -161,9 +160,9 @@ logging.info('waiting for snapshot to appear')
 
 snapshots = backoff(max_retries, conn.get_all_snapshots, [snapshot_id])
 
-backoff( snapshot.add_tag, 'Name', instance_name_tag + '-' + timestamp_tag)
-backoff( snapshot.add_tag, 'Timestamp', timestamp_tag)
-backoff( snapshot.add_tag, 'Instance', instance_name_tag)
+backoff(max_retries, snapshot.add_tag, 'Name', instance_name_tag + '-' + timestamp_tag)
+backoff(max_retries, snapshot.add_tag, 'Timestamp', timestamp_tag)
+backoff(max_retries, snapshot.add_tag, 'Instance', instance_name_tag)
 
 
 # exit

@@ -27,8 +27,6 @@ def get_all_tags(conn, snapshot_id):
 
 # parse command line arguments
 parser = argparse.ArgumentParser(description = 'Rotate EBS snapshots', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--dry-run', action = 'store_true')
-parser.add_argument('--max-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
 parser.add_argument('--keep-hourly', default = 24, type = int, help = 'keep this many hourly snapshots', metavar = 'HOURLY')
 parser.add_argument('--keep-daily', default = 7, type = int, help = 'keep this many daily snapshots', metavar = 'DAILY')
 parser.add_argument('--keep-weekly', default = 4, type = int, help = 'keep this many weekly snapshots', metavar = 'WEEKLY')
@@ -39,6 +37,8 @@ parser.add_argument('--aws-region', default = 'us-east-1', help = 'AWS region', 
 parser.add_argument('--aws-access', required = True, help = 'AWS access key', metavar = 'KEY')
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
 parser.add_argument('--aws-owner', required = True, help = 'AWS account ID')
+parser.add_argument('--max-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
+parser.add_argument('--dry-run', action = 'store_true')
 parser.add_argument('--log-level', help = 'set the log level to increase or decrease verbosity', default = 'WARNING')
 args = parser.parse_args()
 

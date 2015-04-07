@@ -11,30 +11,13 @@ import subprocess
 import time
 import boto.utils
 import boto.ec2
+from ec2-backup-lib import backoff
 
 
 version = sys.hexversion
 if version < 0x02070000:
     sys.stderr.write('python 2.7 or higher required\n')
     sys.exit(-1)
-
-
-# run a command with a geometric backoff
-def backoff(max, f, *args):
-    for attempt in range(1, max):
-        try:
-            ret = f(*args)
-        except:
-            if attempt < max:
-                sleeptime = .25 * (attempt * attempt)
-                logging.warning('"%s" failed, backing off %.2f seconds' % (f, sleeptime))
-                time.sleep(sleeptime)
-            else:
-                logging.critical('failed to execute function "%s", maximum attempts exceeded' % (f))
-                raise
-        else:
-            logging.debug('no backoff needed')
-            return(ret)
 
 
 # get all tags for a snapshot
@@ -130,7 +113,7 @@ timestamps = []
 
 for s in snapshots:
     snapshot_id = s.id
-    tags = backoff(max_retries, get_all_tags, conn, s.id)
+    tags = backoff(max_retries, conn.get_all_tags, filters = {'resource-id': snapshot_id})
     timestamp = filter( lambda tag: tag.name == 'Timestamp', tags )
     if timestamp:
         timestamps.append( (s.id, int(timestamp[0].value)) )

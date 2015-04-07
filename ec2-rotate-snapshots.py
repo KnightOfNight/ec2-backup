@@ -11,7 +11,7 @@ import subprocess
 import time
 import boto.utils
 import boto.ec2
-from ec2-backup-lib import backoff
+from backoff import backoff
 
 
 version = sys.hexversion

@@ -9,6 +9,7 @@ import subprocess
 import time
 import boto.utils
 import boto.ec2
+from backoff import backoff
 
 
 fsfreeze = '/sbin/fsfreeze'
@@ -158,23 +159,11 @@ logging.info('snapshot ID = "%s"' % snapshot_id)
 
 logging.info('waiting for snapshot to appear')
 
-for i in range(0, 10):
-    try:
-        snapshots = conn.get_all_snapshots([snapshot_id])
-    except:
-        if i == 10:
-            logging.critical('timed out waiting for snapshot "%s" to appear' % (snapshot_id))
-            raise
-        else
-            sleep(.25 * i * i)
+snapshots = backoff(max_retries, conn.get_all_snapshots, [snapshot_id])
 
-try:
-    snapshot.add_tag('Name', instance_name_tag + '-' + timestamp_tag)
-    snapshot.add_tag('Timestamp', timestamp_tag)
-    snapshot.add_tag('Instance', instance_name_tag)
-except:
-    logging.critical('failed to add all required tags to snapshot "%s"' % (snapshot.id))
-    raise
+backoff( snapshot.add_tag, 'Name', instance_name_tag + '-' + timestamp_tag)
+backoff( snapshot.add_tag, 'Timestamp', timestamp_tag)
+backoff( snapshot.add_tag, 'Instance', instance_name_tag)
 
 
 # exit

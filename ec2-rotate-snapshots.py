@@ -120,7 +120,7 @@ for window in windows:
     timeslice = window_sizes[window]
     keep = keep_per_window[window]
 
-    logging.info('finding last %d %s snapshots (%d second window)' % (keep, window, timeslice))
+    logging.info('finding last %d %s snapshots (%d second window)' % (keep, window.upper(), timeslice))
 
     for idx in range(0, keep):
         max = now - (idx * timeslice)
@@ -130,7 +130,7 @@ for window in windows:
 
         found = filter( lambda x: x[1] > min and x[1] <= max, timestamps )
 
-        logging.info("found %d %s snapshots (idx = %d, %s to %s)" % (len(found), window, idx, time.ctime(min), time.ctime(max)))
+        logging.info("found %d %s snapshots (idx = %d, %s to %s)" % (len(found), window.upper(), idx, time.ctime(min), time.ctime(max)))
 
         if not found:
             continue

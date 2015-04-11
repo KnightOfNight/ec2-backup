@@ -129,22 +129,13 @@ for window in windows:
         logging.debug("UET %d to UET %d" % (max, min))
 
         found = filter( lambda x: x[1] > min and x[1] <= max, timestamps )
-
+        found.sort( key = lambda x: x[1], reverse = True)
         logging.info("found %d %s snapshots (idx = %d, %s to %s)" % (len(found), window.upper(), idx, time.ctime(min), time.ctime(max)))
 
         if not found:
             continue
 
-        found.sort( key = lambda x: x[1], reverse = True)
-
-        # pop the first (newest) item, it's a keeper
-        f = found.pop(0)
-        logging.info('keeping newest snapshot %s (%s)' % (f[0], time.ctime(f[1])))
-
-        if not found:
-            continue
-
-        # pop the last (oldest) item, it's a keeper so it can age into the next oldest bucket
+        # pop the last (oldest) item, it's the keeper
         f = found.pop()
         logging.info('keeping oldest snapshot %s (%s)' % (f[0], time.ctime(f[1])))
 

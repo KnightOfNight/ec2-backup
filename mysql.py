@@ -1,6 +1,7 @@
 
 
 import ConfigParser
+import logging
 import MySQLdb
 import os
 import sys

@@ -38,7 +38,7 @@ class lock:
     def __init__(self):
         (username, password) = getcreds()
 
-        self.db = MySQLdb.connect( user = username, passwd = password, host = 'locahost' )
+        self.db = MySQLdb.connect( user = username, passwd = password, host = 'localhost' )
         self.cur = self.db.cursor()
 
     def lock(self):

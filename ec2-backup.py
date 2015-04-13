@@ -9,8 +9,8 @@ import subprocess
 import time
 import boto.utils
 import boto.ec2
+import mysql
 from backoff import backoff
-from mysql import lock
 
 
 fsfreeze = '/sbin/fsfreeze'

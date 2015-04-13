@@ -129,7 +129,7 @@ elif mysql_lock:
     mysql = mysql.lock()
     mysql.green()
 
-else
+else:
     mysql = None
 
 

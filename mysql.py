@@ -4,6 +4,7 @@ import ConfigParser
 import logging
 import MySQLdb
 import os
+import subprocess
 import sys
 
 
@@ -41,14 +42,30 @@ class lock:
         self.db = MySQLdb.connect( user = username, passwd = password, host = 'localhost' )
         self.cur = self.db.cursor()
 
-    def lock(self):
+    def green(self):
+        logging.info('locking mysql tables')
         self.cur.execute('flush logs')
         self.cur.execute('flush tables with read lock')
 
-    def unlock(self):
+    def red(self):
+        logging.info('unlocking mysql tables')
         self.cur.execute('unlock tables')
 
 class stop:
-    def __init__(self, initscript = '/etc/init.d/mysql'):
+    def __init__(self, initscript = '/etc/init.d/mysqld'):
         self.initscript = initscript
+
+    def green(self):
+        logging.info('stopping mysql')
+        cmd = self.initscript + ' stop > /dev/null'
+        if subprocess.call( cmd, shell = True):
+            logging.critical('unable to stop mysql')
+            sys.exit(-1)
+
+    def red(self):
+        logging.info('starting mysql')
+        cmd = self.initscript + ' start > /dev/null'
+        if subprocess.call( cmd, shell = True):
+            logging.critical('unable to start mysql')
+            sys.exit(-1)
 

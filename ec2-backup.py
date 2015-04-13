@@ -45,6 +45,8 @@ parser.add_argument('--aws-region', default = 'us-east-1', help = 'AWS region', 
 parser.add_argument('--aws-access', required = True, help = 'AWS access key', metavar = 'KEY')
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
 parser.add_argument('--mysql', help = 'stop MySQL before taking the snapshot and restart it after', action='store_true')
+parser.add_argument('--mysql-stop', help = 'stop MySQL before taking the snapshot and restart it after', action='store_true')
+parser.add_argument('--mysql-lock', help = 'lock MySQL before taking the snapshot and unlock it after', action='store_true')
 parser.add_argument('--max-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
 parser.add_argument('--log-level', help = 'set the log level to increase or decrease verbosity', default = 'WARNING')
 args = parser.parse_args()
@@ -54,13 +56,10 @@ mount = args.mount
 aws_region = args.aws_region
 aws_access = args.aws_access
 aws_secret = args.aws_secret
-mysql = args.mysql
+mysql_stop = args.mysql_stop
+mysql_lock = args.mysql_lock
 max_retries = args.max_retries
 log_level = args.log_level
-
-if mysql and not os.path.isfile('/etc/init.d/mysqld'):
-    logging.critical('MySQL daemon init script not found, cannot stop and start MySQL')
-    sys.exit(-1)
 
 
 # setup logging
@@ -121,12 +120,17 @@ instance_name_tag = tags[0].value
 timestamp_tag = str(int(time.time()))
 
 
-# stop mysql
-if mysql:
-    logging.info('stopping mysql')
-    if subprocess.call( '/etc/init.d/mysqld stop > /dev/null', shell = True):
-        logging.critical('unable to stop mysql')
-        sys.exit(-1)
+# handle mysql
+if mysql_stop:
+    mysql = mysql.stop()
+    mysql.green()
+
+elif mysql_lock:
+    mysql = mysql.lock()
+    mysql.green()
+
+else
+    mysql = None
 
 
 # take the snapshot
@@ -136,20 +140,20 @@ logging.info('taking snapshot')
 
 try:
     snapshot = volume.create_snapshot(description = 'Created by backup.py')
+
 except:
     fs_thaw(mount)
+    if mysql:
+        mysql.red()
     logging.critical('snapshot failed')
     raise
 
 fs_thaw(mount)
 
 
-# start mysql
+# handle mysql
 if mysql:
-    logging.info('starting mysql')
-    if subprocess.call( '/etc/init.d/mysqld start > /dev/null', shell = True):
-        logging.critical('unable to start mysql')
-        sys.exit(-1)
+    mysql.red()
 
 
 # tag the snapshot

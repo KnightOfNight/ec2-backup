@@ -1,6 +1,6 @@
 # ec2-backup
 Backup an EC2 instance by taking a snapshot of the EBS root volume.  Rotate snapshots with configurable aging.
-
+<pre>
 ## Backup Script
 usage: ec2-backup.py [-h] --device DEVICE --mount MOUNT [--aws-region REGION]
                      --aws-access KEY --aws-secret KEY [--mysql]
@@ -30,3 +30,4 @@ optional arguments:
   --log-level LOG_LEVEL
                         set the log level to increase or decrease verbosity
                         (default: WARNING)
+</pre>

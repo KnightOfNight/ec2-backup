@@ -33,7 +33,7 @@ parser.add_argument('--aws-access', required = True, help = 'AWS access key', me
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
 parser.add_argument('--aws-owner', required = True, help = 'AWS account ID')
 parser.add_argument('--max-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
-parser.add_argument('--dry-run', action = 'store_true')
+parser.add_argument('--dry-run', help = 'do not delete any snapshots', action = 'store_true')
 parser.add_argument('--log-level', help = 'set the log level to increase or decrease verbosity', default = 'WARNING')
 args = parser.parse_args()
 

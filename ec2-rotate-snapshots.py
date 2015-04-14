@@ -22,6 +22,7 @@ if version < 0x02070000:
 
 # parse command line arguments
 parser = argparse.ArgumentParser(description = 'Rotate EBS snapshots', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--dry-run', help = 'do not delete any snapshots', action = 'store_true')
 parser.add_argument('--keep-hourly', default = 24, type = int, help = 'keep this many hourly snapshots', metavar = 'HOURLY')
 parser.add_argument('--keep-daily', default = 7, type = int, help = 'keep this many daily snapshots', metavar = 'DAILY')
 parser.add_argument('--keep-weekly', default = 4, type = int, help = 'keep this many weekly snapshots', metavar = 'WEEKLY')
@@ -32,10 +33,11 @@ parser.add_argument('--aws-region', default = 'us-east-1', help = 'AWS region', 
 parser.add_argument('--aws-access', required = True, help = 'AWS access key', metavar = 'KEY')
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
 parser.add_argument('--aws-owner', required = True, help = 'AWS account ID')
-parser.add_argument('--max-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
-parser.add_argument('--dry-run', help = 'do not delete any snapshots', action = 'store_true')
+parser.add_argument('--aws-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
 parser.add_argument('--log-level', help = 'set the log level to increase or decrease verbosity', default = 'WARNING')
 args = parser.parse_args()
+
+dry_run = args.dry_run
 
 windows = [ 'hourly', 'daily', 'weekly', 'monthly', 'yearly' ]
 window_sizes = {
@@ -63,13 +65,12 @@ if args.keep_monthly:
 if args.keep_yearly:
     keep_per_window['yearly'] = args.keep_yearly
 
-max_retries = args.max_retries
-dry_run = args.dry_run
 tags = args.tags
 aws_region = args.aws_region
 aws_access = args.aws_access
 aws_secret = args.aws_secret
 aws_owner = args.aws_owner
+aws_retries = args.aws_retries
 log_level = args.log_level
 
 
@@ -93,7 +94,7 @@ if tags:
         (name, value) = string.split(tag, ':')
         filters['tag:'+name] = value
 
-snapshots = backoff(max_retries, conn.get_all_snapshots, filters = filters, owner = aws_owner)
+snapshots = backoff(aws_retries, conn.get_all_snapshots, filters = filters, owner = aws_owner)
 
 if not snapshots:
     logging.error('no snapshots found')
@@ -105,7 +106,7 @@ timestamps = []
 
 for s in snapshots:
     snapshot_id = s.id
-    tags = backoff(max_retries, conn.get_all_tags, filters = {'resource-id': snapshot_id})
+    tags = backoff(aws_retries, conn.get_all_tags, filters = {'resource-id': snapshot_id})
     timestamp = filter( lambda tag: tag.name == 'Timestamp', tags )
     if timestamp:
         timestamps.append( (s.id, int(timestamp[0].value)) )
@@ -148,7 +149,7 @@ for window in windows:
                 logging.warn('*would* delete %s' % (details))
             else:
                 logging.info('deleting %s' % (details))
-                backoff( max_retries, conn.delete_snapshot, f[0] )
+                backoff( aws_retries, conn.delete_snapshot, f[0] )
 
     now -= keep * timeslice
 

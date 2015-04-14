@@ -41,24 +41,23 @@ def fs_thaw(mount):
 parser = argparse.ArgumentParser(description = 'Backup an attached EBS volume', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--device', required = True, help = 'device name of the attached volume, e.g. /dev/xvda')
 parser.add_argument('--mount', required = True, help = 'mount point of the attached volume, e.g. /')
+parser.add_argument('--mysql-stop', help = 'stop MySQL before taking the snapshot and restart it after', action='store_true')
+parser.add_argument('--mysql-lock', help = 'lock MySQL before taking the snapshot and unlock it after', action='store_true')
 parser.add_argument('--aws-region', default = 'us-east-1', help = 'AWS region', metavar ='REGION')
 parser.add_argument('--aws-access', required = True, help = 'AWS access key', metavar = 'KEY')
 parser.add_argument('--aws-secret', required = True, help = 'AWS secret key', metavar = 'KEY')
-parser.add_argument('--mysql', help = 'stop MySQL before taking the snapshot and restart it after', action='store_true')
-parser.add_argument('--mysql-stop', help = 'stop MySQL before taking the snapshot and restart it after', action='store_true')
-parser.add_argument('--mysql-lock', help = 'lock MySQL before taking the snapshot and unlock it after', action='store_true')
-parser.add_argument('--max-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
+parser.add_argument('--aws-retries', default = 10, type = int, help = 'maximum number of API retries before giving up', metavar = 'RETRIES')
 parser.add_argument('--log-level', help = 'set the log level to increase or decrease verbosity', default = 'WARNING')
 args = parser.parse_args()
 
 device = args.device
 mount = args.mount
+mysql_stop = args.mysql_stop
+mysql_lock = args.mysql_lock
 aws_region = args.aws_region
 aws_access = args.aws_access
 aws_secret = args.aws_secret
-mysql_stop = args.mysql_stop
-mysql_lock = args.mysql_lock
-max_retries = args.max_retries
+aws_retries = args.aws_retries
 log_level = args.log_level
 
 
@@ -163,11 +162,11 @@ logging.info('snapshot ID = "%s"' % snapshot_id)
 
 logging.info('waiting for snapshot to appear')
 
-snapshots = backoff(max_retries, conn.get_all_snapshots, [snapshot_id])
+snapshots = backoff(aws_retries, conn.get_all_snapshots, [snapshot_id])
 
-backoff(max_retries, snapshot.add_tag, 'Name', instance_name_tag + '-' + timestamp_tag)
-backoff(max_retries, snapshot.add_tag, 'Timestamp', timestamp_tag)
-backoff(max_retries, snapshot.add_tag, 'Instance', instance_name_tag)
+backoff(aws_retries, snapshot.add_tag, 'Name', instance_name_tag + '-' + timestamp_tag)
+backoff(aws_retries, snapshot.add_tag, 'Timestamp', timestamp_tag)
+backoff(aws_retries, snapshot.add_tag, 'Instance', instance_name_tag)
 
 
 # exit

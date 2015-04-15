@@ -87,7 +87,7 @@ except:
 
 
 # get list of all snapshots
-filters = { "status": "completed" }
+filters = { 'status': 'completed' }
 
 if tags:
     for tag in tags:
@@ -99,6 +99,8 @@ snapshots = backoff(aws_retries, conn.get_all_snapshots, filters = filters, owne
 if not snapshots:
     logging.error('no snapshots found')
     sys.exit(-1)
+
+logging.info('found %d completed snapshots that match the tags "%s"' % (len(snapshots), ', '.join(tags)))
 
 
 # get the timestamp of every snapshot
@@ -127,11 +129,11 @@ for window in windows:
         max = now - (idx * timeslice)
         min = max - timeslice
 
-        logging.debug("UET %d to UET %d" % (max, min))
+        logging.debug('UET %d to UET %d' % (max, min))
 
         found = filter( lambda x: x[1] > min and x[1] <= max, timestamps )
         found.sort( key = lambda x: x[1], reverse = True)
-        logging.info("found %d %s snapshots (idx = %d, %s to %s)" % (len(found), window.upper(), idx, time.ctime(min), time.ctime(max)))
+        logging.info('found %d %s snapshots (idx = %d, %s to %s)' % (len(found), window.upper(), idx, time.ctime(min), time.ctime(max)))
 
         if not found:
             continue
@@ -152,6 +154,21 @@ for window in windows:
                 backoff( aws_retries, conn.delete_snapshot, f[0] )
 
     now -= keep * timeslice
+
+max = now
+min = 0
+logging.info('finding all other snapshots')
+logging.debug('UET %d to UET %d' % (max, min))
+found = filter( lambda x: x[1] > min and x[1] <= max, timestamps )
+found.sort( key = lambda x: x[1], reverse = True)
+logging.info('found %d remaining snapshots (%s to %s)' % (len(found), time.ctime(min), time.ctime(max)))
+for f in found:
+    details = 'snapshot %s (%s)' % (f[0], time.ctime(f[1]))
+    if dry_run:
+        logging.warn('*would* delete %s' % (details))
+    else:
+        logging.info('deleting %s' % (details))
+        backoff( aws_retries, conn.delete_snapshot, f[0] )
 
 
 sys.exit(0)

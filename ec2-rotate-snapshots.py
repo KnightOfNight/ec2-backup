@@ -140,7 +140,7 @@ for window in windows:
 
         # pop the last (oldest) item, it's the keeper
         f = found.pop()
-        logging.info('keeping oldest snapshot %s (%s)' % (f[0], time.ctime(f[1])))
+        logging.info('KEEP snapshot %s (%s)' % (f[0], time.ctime(f[1])))
 
         if not found:
             continue
@@ -148,9 +148,9 @@ for window in windows:
         for f in found:
             details = 'snapshot %s (%s)' % (f[0], time.ctime(f[1]))
             if dry_run:
-                logging.warn('*would* delete %s' % (details))
+                logging.warn('*WOULD DELETE* %s' % (details))
             else:
-                logging.info('deleting %s' % (details))
+                logging.info('DELETE %s' % (details))
                 backoff( aws_retries, conn.delete_snapshot, f[0] )
 
     now -= keep * timeslice
@@ -165,9 +165,9 @@ logging.info('found %d remaining snapshots (%s to %s)' % (len(found), time.ctime
 for f in found:
     details = 'snapshot %s (%s)' % (f[0], time.ctime(f[1]))
     if dry_run:
-        logging.warn('*would* delete %s' % (details))
+        logging.warn('*WOULD DELETE* %s' % (details))
     else:
-        logging.info('deleting %s' % (details))
+        logging.info('DELETE %s' % (details))
         backoff( aws_retries, conn.delete_snapshot, f[0] )
 
 

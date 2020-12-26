@@ -1,24 +1,23 @@
-
+"""run a command with a geometric backoff"""
 
 import logging
 import time
 
-
-# run a command with a geometric backoff
-def backoff(max, f, *args, **kwargs):
-    for attempt in range(1, max):
+def backoff(retries, func, *args, **kwargs):
+    """run a command with a geometric backoff"""
+    for attempt in range(retries):
         try:
-            ret = f(*args, **kwargs)
+            ret = func(*args, **kwargs)
 
-        except:
-            if attempt < max:
+        except: # pylint: disable=bare-except
+            if attempt < retries:
                 sleeptime = .25 * (attempt * 2)
-                logging.warning('"%s" failed, backing off %.2f seconds' % (f, sleeptime))
+                logging.warning("%s() failed, backing off %.2f seconds", func, sleeptime)
                 time.sleep(sleeptime)
             else:
-                logging.critical('failed to execute function "%s", maximum attempts exceeded' % (f))
+                logging.critical("%s() failed after %d retries", func, retries)
                 raise
-        else:
-            logging.debug('function "%s" try was successful, no backoff needed' % (f))
-            return(ret)
 
+        else:
+            logging.debug("%s() successful", func)
+            return ret

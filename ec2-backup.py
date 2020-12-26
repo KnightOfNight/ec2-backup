@@ -121,11 +121,11 @@ timestamp_tag = str(int(time.time()))
 
 # handle mysql
 if mysql_stop:
-    mysql = mysql.stop()
+    mysql = mysql.Stop()
     mysql.green()
 
 elif mysql_lock:
-    mysql = mysql.lock()
+    mysql = mysql.Lock()
     mysql.green()
 
 else:

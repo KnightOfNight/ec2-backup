@@ -140,6 +140,8 @@ def main():
     instance_name_tag = tags[0].value
     timestamp_tag = str(int(time.time()))
 
+    logging.info("hostname = '%s'", instance_name_tag)
+
     # take the snapshot
     fs_freeze(args.mount)
 

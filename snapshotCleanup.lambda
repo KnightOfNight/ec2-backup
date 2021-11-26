@@ -1,0 +1,176 @@
+import logging
+import os
+import time
+import boto3
+import base64
+
+logger = None
+
+def get_event(event, key, reqtype=None, required=False):
+    try:
+        value = event[key]
+        if reqtype and not isinstance(value, reqtype):
+            assert False, "key '%s' expecting type '%s', got value '%s'" % (key, reqtype, value)
+    except KeyError:
+        if required:
+            assert False, "key '%s' not found" % key
+        return None
+    else:
+        return value
+
+def decode(cred):
+    blob = base64.b64decode(cred)
+    value = boto3.client('kms').decrypt(CiphertextBlob=blob)['Plaintext']
+    value = value.decode('utf-8')
+    return value
+
+def lambda_handler(event, context):
+    filters = [{'Name':'status', 'Values':['completed']}]
+
+    windows = [ 'hourly', 'daily', 'weekly', 'monthly', 'yearly' ]
+    
+    window_sizes = {
+        windows[0]: 60*60,
+        windows[1]: 60*60*24,
+        windows[2]: 60*60*24*7,
+        windows[3]: 60*60*24*30,
+        windows[4]: 60*60*24*365
+    }
+    
+    keep_per_window = {
+        windows[0]: 24,
+        windows[1]: 7,
+        windows[2]: 4,
+        windows[3]: 3,
+        windows[4]: 1
+    }
+    
+    dry_run = True
+
+    # setup logging
+    global logger
+    logger = logging.getLogger()
+    logger_level = logging.WARNING
+    logger.setLevel(logger_level)
+
+    access_key = decode(os.environ["ENC_ACCESS_KEY"])
+    secret_key = decode(os.environ["ENC_SECRET_KEY"])
+    owner = decode(os.environ["ENC_OWNER_KEY"])
+
+    # get event["log_level"]
+    v = get_event(event, 'log_level', reqtype=str)
+    if v is not None:
+        logger_level = v.upper()
+        logger.setLevel(logger_level)
+
+    # get event['dry_run']
+    v = get_event(event, 'dry_run', reqtype=int)
+    if v is not None:
+        dry_run = bool(int(v))
+    logger.debug("dry_run: %s" % dry_run)
+
+    # get event["instance"]
+    v = get_event(event, 'instance', reqtype=str, required=True)
+    if v is not None:
+        v = str(v)
+        hostname = str(v)
+    assert hostname
+    logger.debug("hostname: %s" % hostname)
+    
+    filters.append( {'Name':'tag:Instance', 'Values':[hostname]} )
+
+    # get the event window settings
+    for window in windows:
+        v = get_event(event, 'keep_' + window)
+        if v is not None:
+            keep_per_window[window] = int(v)
+
+    logger.debug('filters: %s' % (filters))
+    logger.debug('windows: %s' % (windows))
+    logger.debug('keep_per_windows: %s' % (keep_per_window))
+    logger.debug('event: %s' % event)
+
+    # connect and get snapshots
+    ec = boto3.client('ec2', region_name='us-east-1', aws_access_key_id=access_key, aws_secret_access_key=secret_key)
+    snapshots = ec.describe_snapshots(Filters=filters, OwnerIds=[owner])['Snapshots']
+    if snapshots:
+        logger.info('FOUND %d total snapshots for host "%s"' % (len(snapshots), hostname))
+    else:
+        logger.error('0 snapshots found for host "%s"' % (hostname))
+        return
+
+    # get the timestamp of every snapshot
+    timestamps = []
+    for s in snapshots:
+        snapshot_id = s['SnapshotId']
+
+        filters = [
+            { 'Name':'resource-id', 'Values':[snapshot_id] },
+            { 'Name':'key', 'Values':['Timestamp'] },
+        ]
+
+        tags = ec.describe_tags( Filters = filters )['Tags']
+
+        if tags:
+            ts = int(tags[0]['Value'])
+            logger.debug('snapshot "%s" has timestamp "%d"' % (snapshot_id, ts))
+            timestamps.append( (snapshot_id, ts) )
+        else:
+            logger.warning('snapshot "%s" does not have a tag named "Timestamp"' % (snapshot_id))
+
+    # do the rotation
+    latest_time = time.time()
+    
+    for window in windows:
+        timeslice = window_sizes[window]
+        keep = keep_per_window[window]
+    
+        logger.info('FIND last %d %s snapshots (%d second window)' % (keep, window.upper(), timeslice))
+    
+        for idx in range(0, keep):
+            max = latest_time - (idx * timeslice)
+            min = max - timeslice
+    
+            logger.debug('UET %d to UET %d' % (max, min))
+    
+            found = sorted( (x for x in timestamps if x[1] > min and x[1] <= max), key=lambda x: x[1], reverse=True )
+
+            logger.info('FOUND %d %s/%d snapshots (%s to %s)' % (len(found), window.upper(), (idx + 1), time.ctime(min), time.ctime(max)))
+    
+            if not found:
+                continue
+    
+            # pop the last (oldest) item, it's the keeper
+            f = found.pop()
+            logger.info('KEEP %s %s (%s)' % (window.upper(), f[0], time.ctime(f[1])))
+    
+            if not found:
+                continue
+    
+            for f in found:
+                details = '%s %s (%s)' % (window.upper(), f[0], time.ctime(f[1]))
+                if dry_run:
+                    logger.warning('*WOULD DELETE* %s' % (details))
+                else:
+                    logger.warning('DELETE %s' % (details))
+                    ec.delete_snapshot(SnapshotId=f[0])
+
+        latest_time -= keep * timeslice
+
+
+    # cleanup all remaining snapshots that are older than all windows
+    max = latest_time
+    min = 0
+    logger.info('FIND all remaining snapshots')
+
+    found = sorted( (x for x in timestamps if x[1] > min and x[1] <= max), key=lambda x: x[1], reverse=True )
+
+    logger.info('FOUND %d REMAINING snapshots (%s to %s)' % (len(found), time.ctime(min), time.ctime(max)))
+
+    for f in found:
+        details = '%s (%s)' % (f[0], time.ctime(f[1]))
+        if dry_run:
+            logger.warning('*WOULD DELETE* %s' % (details))
+        else:
+            logger.warning('DELETE %s' % (details))
+            ec.delete_snapshot(SnapshotId=f[0])
